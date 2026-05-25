@@ -91,7 +91,7 @@ if __name__ == "__main__":
         model,
         dummy_input,
         "sin_model.onnx",
-        opset_version=12,
+        opset_version=18,
         input_names=["input"],
         output_names=["output"],
     )

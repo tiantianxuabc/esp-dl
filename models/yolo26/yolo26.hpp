@@ -12,11 +12,15 @@
 #define YOLO_CONF_THRESH 0.25f
 
 // Default Configuration
+struct grid_size {
+    int width;
+    int height;
+};
 
 class YOLO26 {
 private:
     // --- State (Calculated/Configured) ---
-    std::vector<int> grid_sizes; // Calculated in preprocess
+    std::vector<grid_size> grid_sizes; // Calculated in preprocess
     int num_classes;             // Calculated in postprocess
     int target_k;
     float conf_thresh;

@@ -30,7 +30,7 @@ def prepare_onnx():
     # Patches the ESP_Attention nodes for static reshaping
     apply_export_patches(model)
     model.export(
-        format="onnx", opset=13, simplify=True, imgsz=QATConfig.IMG_SZ, dynamic=False
+        format="onnx", opset=15, simplify=True, batch=1, imgsz=(QATConfig.IMG_SZ_H, QATConfig.IMG_SZ_W), dynamic=False
     )
     print(f"Exported base ONNX to {QATConfig.ONNX_PATH}")
 
@@ -123,7 +123,7 @@ def espdl_preprocess(img_bgr, dst_shape, pad_val=114):
 def eval_espdl_model(
     test_image_path,
     graph,
-    target_img_sz,
+    target_img_sz:tuple,
     data_yaml,
     platform="p4",
     conf_thresh=0.25,
@@ -170,7 +170,7 @@ def eval_espdl_model(
         print(f"[eval_espdl_model] ERROR: could not read '{test_image_path}'")
         return None
 
-    im = espdl_preprocess(im0, dst_shape=(target_img_sz, target_img_sz))
+    im = espdl_preprocess(im0, dst_shape=target_img_sz)
     im_draw = im.copy()  # keep BGR copy for drawing
 
     im_chw = np.ascontiguousarray(im[..., ::-1].transpose(2, 0, 1))  # BGR→RGB, HWC→CHW
@@ -185,8 +185,8 @@ def eval_espdl_model(
     tv = {name: raw_outputs[i].detach().cpu() for i, name in enumerate(output_keys)}
 
     # ── 4. Decode P3 / P4 / P5 head outputs ───────────────────────────────
-    strides = [8, 16, 32]
-    scales = ["p3", "p4", "p5"]
+    strides = [8, 16] #, 32]
+    scales = ["p3", "p4"] #, "p5"]
     all_boxes, all_scores = [], []
 
     for stride, scale in zip(strides, scales):
@@ -258,8 +258,8 @@ def eval_espdl_model(
         x1, y1, x2, y2 = [int(v) for v in p["box"]]
         x1 = max(0, x1)
         y1 = max(0, y1)
-        x2 = min(target_img_sz, x2)
-        y2 = min(target_img_sz, y2)
+        x2 = min(target_img_sz[1], x2)
+        y2 = min(target_img_sz[0], y2)
 
         color = COLORS[j % len(COLORS)]
         label = f"{p['class']} {p['score']:.2f}"
@@ -289,7 +289,7 @@ def eval_espdl_model(
     # ── 8. Save (high quality) ─────────────────────────────────────────────
     os.makedirs(output_dir, exist_ok=True)
     stem, ext = os.path.splitext(os.path.basename(test_image_path))
-    output_path = os.path.join(output_dir, f"{stem}_{target_img_sz}_s8_{platform}{ext}")
+    output_path = os.path.join(output_dir, f"{stem}_{target_img_sz[0]}_{target_img_sz[1]}_s8_{platform}{ext}")
     fig.savefig(output_path, dpi=150, bbox_inches="tight")
     print(f"[eval_espdl_model] {len(predictions)} detection(s) → saved: {output_path}")
 

@@ -53,7 +53,7 @@ class QATTrainer:
             {
                 "mode": "val",
                 "data": QATConfig.DATA_YAML_FILE,
-                "imgsz": QATConfig.IMG_SZ,
+                "imgsz":(QATConfig.IMG_SZ_H, QATConfig.IMG_SZ_W),
                 "rect": False,
                 "plots": True,
                 "device": self._device,

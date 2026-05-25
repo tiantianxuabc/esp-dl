@@ -18,7 +18,7 @@ class CaliDataset(Dataset):
         self.transform = transforms.Compose(
             [
                 transforms.ToTensor(),
-                transforms.Resize((QATConfig.IMG_SZ, QATConfig.IMG_SZ)),
+                transforms.Resize((QATConfig.IMG_SZ_H, QATConfig.IMG_SZ_W)),
                 transforms.Normalize(mean=[0, 0, 0], std=[1, 1, 1]),
             ]
         )
@@ -89,7 +89,7 @@ def get_train_loader(data_cfg):
     """Creates the YOLO training DataLoader."""
     dataset_class = YOLODataset
     batchsz = QATConfig.BATCH_SIZE
-    imgsz = QATConfig.IMG_SZ
+    imgsz = (QATConfig.IMG_SZ_H, QATConfig.IMG_SZ_W)
     fraction = QATConfig.DATA_FRACTION
 
     if "nc" not in data_cfg:

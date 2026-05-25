@@ -8,13 +8,15 @@
 #include <cmath>
 #include <cstdio>
 
+#define OUTPUT_LAYERS 2  // 3 = [p3 p4 p5]  after remove p5 2 = [p3 p4] 
+
 // --- Constructor ---
 
 YOLO26::YOLO26(dl::Model *model, int k, float thresh, const char **classes) :
     target_k(k), conf_thresh(thresh), class_names(classes)
 {
     // Reserve memory for grids
-    grid_sizes.resize(3);
+    grid_sizes.resize(OUTPUT_LAYERS);
 
     // Initialize the preprocessor with standard YOLO Mean (0) and Std (255)
     m_image_preprocessor = new dl::image::ImagePreprocessor(model, {0, 0, 0}, {255, 255, 255});
@@ -24,9 +26,12 @@ YOLO26::YOLO26(dl::Model *model, int k, float thresh, const char **classes) :
     auto inputs = model->get_inputs();
     if (!inputs.empty()) {
         dl::TensorBase *input_tensor = inputs.begin()->second;
-        int input_w = input_tensor->shape[2];
-        for (int i = 0; i < 3; i++) {
-            grid_sizes[i] = input_w / strides[i];
+        int input_w = input_tensor->shape[2]; // batch  height width channel
+        int input_h = input_tensor->shape[1];
+        
+        for (int i = 0; i < OUTPUT_LAYERS; i++) {
+            grid_sizes[i].width = input_w / strides[i];
+            grid_sizes[i].height = input_h / strides[i];
         }
     }
 }
@@ -112,17 +117,17 @@ void YOLO26::decode_grid(dl::TensorBase *p_box,
 std::vector<dl::detect::result_t> YOLO26::postprocess(const std::map<std::string, dl::TensorBase *> &outputs)
 {
     // Ensure grid_sizes are ready
-    if (grid_sizes.empty() || grid_sizes[0] == 0) {
+    if (grid_sizes.empty() || grid_sizes[0].width == 0 || grid_sizes[0].height == 0) {
         printf("[YOLO26] Error: Grid sizes not initialized. Call preprocess() first.\n");
         return {};
     }
 
     dl::TensorBase *p3_box = outputs.at("one2one_p3_box");
     dl::TensorBase *p4_box = outputs.at("one2one_p4_box");
-    dl::TensorBase *p5_box = outputs.at("one2one_p5_box");
+    // dl::TensorBase *p5_box = outputs.at("one2one_p5_box");
     dl::TensorBase *p3_cls = outputs.at("one2one_p3_cls");
     dl::TensorBase *p4_cls = outputs.at("one2one_p4_cls");
-    dl::TensorBase *p5_cls = outputs.at("one2one_p5_cls");
+    // dl::TensorBase *p5_cls = outputs.at("one2one_p5_cls");
 
     // Auto-detect the class count
     this->num_classes = p3_cls->shape[3];
@@ -130,13 +135,13 @@ std::vector<dl::detect::result_t> YOLO26::postprocess(const std::map<std::string
     std::vector<dl::detect::result_t> candidates;
     candidates.reserve(target_k * 2);
 
-    dl::TensorBase *boxes[] = {p3_box, p4_box, p5_box};
-    dl::TensorBase *clss[] = {p3_cls, p4_cls, p5_cls};
+    dl::TensorBase *boxes[] = {p3_box, p4_box}; //, p5_box};
+    dl::TensorBase *clss[] = {p3_cls, p4_cls}; //, p5_cls};
 
-    for (int i = 0; i < 3; i++) {
+    for (int i = 0; i < OUTPUT_LAYERS; i++) {
         int stride = strides[i];
-        int grid_h = grid_sizes[i]; // Use stored grid size
-        int grid_w = grid_sizes[i];
+        int grid_h = grid_sizes[i].height; // Use stored grid size
+        int grid_w = grid_sizes[i].width;
 
         if (boxes[i]->dtype == dl::DATA_TYPE_INT8 && clss[i]->dtype == dl::DATA_TYPE_INT8) {
             decode_grid<int8_t>(boxes[i], clss[i], stride, grid_h, grid_w, candidates);

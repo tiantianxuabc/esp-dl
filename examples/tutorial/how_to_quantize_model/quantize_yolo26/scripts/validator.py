@@ -18,6 +18,7 @@ from config import QATConfig
 
 def ppq_graph_inference(executor, task, inputs, device, model_meta):
     """PPQ graph inference with manual decoding for YOLOv26 using dynamic metadata."""
+    print(inputs.shape)
     graph_outputs = executor(inputs)
 
     # Extract meta
